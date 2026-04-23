@@ -62,6 +62,32 @@
     flex-direction: column; z-index: 18;
   }
   #pauseScreen h2 { font-size: 4em; color: #fff; text-shadow: 3px 3px 0 #333; margin-bottom: .5em; }
+
+  /* Weapon HUD */
+  #wp {
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+  }
+  .wp-slot {
+    padding: 5px 14px;
+    border-radius: 10px;
+    font-size: 1.05em;
+    background: rgba(0,0,0,0.45);
+    border: 2px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.5);
+    transition: all 0.18s;
+    white-space: nowrap;
+  }
+  .wp-slot.active {
+    background: rgba(0,100,220,0.45);
+    border-color: #44aaff;
+    color: #fff;
+    text-shadow: 0 0 8px #44aaff;
+  }
 </style>
 </head>
 <body>
@@ -72,7 +98,8 @@
   <div class="inst">
     🖱️ Rör musen för att sikta<br>
     ⬆⬇⬅➡ Piltangenter (eller WASD) för att röra dig<br>
-    🖱️ Klicka för att skjuta vatten 💦<br>
+    🖱️ Klicka för att skjuta 💦 vatten eller 🏀 basket<br>
+    ⌨️ Tryck <b>Mellanslag</b> för att byta vapen!<br>
     🐔 Blå kycklingzombies tål <b>2 träffar!</b><br>
     ⏱️ Överlev i 5 minuter för att vinna!
   </div>
@@ -91,7 +118,11 @@
   <div id="tm">⏱ 5:00</div>
   <div id="ann"></div>
   <div id="ch"></div>
-  <div id="tip">Flytta musen för att sikta · Klicka för att skjuta</div>
+  <div id="wp">
+    <div class="wp-slot active" id="wp1">💦 Vatten [1]</div>
+    <div class="wp-slot" id="wp2">🏀 Basket [Mellanslag]</div>
+  </div>
+  <div id="tip">Flytta musen för att sikta · Klicka för att skjuta · Mellanslag = byta vapen</div>
   <button id="pauseBtn" onclick="pauseToggle()">⏸ Paus (P)</button>
 </div>
 <div id="dmg"></div>
@@ -209,27 +240,21 @@ makeCloud(-20,18,-25,.6); makeCloud(8,20,-20,.4);
 makeCloud(-5,17,-30,.7);  makeCloud(18,19,10,.5);
 
 // ── ZOMBIE FACTORY ────────────────────────────────────────────────────────────
-const skinColors  = [0x6ec46e, 0x7acc7a, 0x5eb85e, 0x80d080];
-const shirtColors = [0x8b4513, 0x996633, 0x7a3f10, 0x6b5a2a];
-
 function makeZombie() {
-  // Bright lime-green zombie: red spiky hair, big bulging eyes, torn tank top, blue shorts
   const skinVars = [0x7ac520, 0x82cc22, 0x6db81a, 0x78c018];
   const skin   = new THREE.MeshLambertMaterial({ color: skinVars[Math.floor(Math.random()*4)] });
-  const tank   = new THREE.MeshLambertMaterial({ color: 0xbbbbaa }); // dirty white tank top
-  const shorts = new THREE.MeshLambertMaterial({ color: 0x3388cc }); // blue shorts
-  const hair   = new THREE.MeshLambertMaterial({ color: 0xcc1111 }); // red hair
-  const eyeW   = new THREE.MeshLambertMaterial({ color: 0xeeeebb }); // yellowish eye white
+  const tank   = new THREE.MeshLambertMaterial({ color: 0xbbbbaa });
+  const shorts = new THREE.MeshLambertMaterial({ color: 0x3388cc });
+  const hair   = new THREE.MeshLambertMaterial({ color: 0xcc1111 });
+  const eyeW   = new THREE.MeshLambertMaterial({ color: 0xeeeebb });
   const black  = new THREE.MeshLambertMaterial({ color: 0x222222 });
-  const teeth  = new THREE.MeshLambertMaterial({ color: 0xddcc88 }); // creamy teeth
+  const teeth  = new THREE.MeshLambertMaterial({ color: 0xddcc88 });
   const mouth  = new THREE.MeshLambertMaterial({ color: 0x550000 });
   const g = new THREE.Group();
 
-  // ── Head ──
   const head = new THREE.Mesh(new THREE.BoxGeometry(.8,.78,.74), skin);
   head.position.set(0, 1.76, 0); head.castShadow = true; g.add(head);
 
-  // Red spiky hair — spikes on top + clumps on sides
   [[-0.12,0.06],[0.12,-0.04],[0,-0.12],[0.22,0.02],[-0.22,0.0]].forEach(([hx,hz], i) => {
     const spike = new THREE.Mesh(new THREE.ConeGeometry(.07,.28+i*.03, 4), hair);
     spike.position.set(hx, 2.12, hz);
@@ -243,7 +268,6 @@ function makeZombie() {
     clump.position.set(hx, 1.88, -.08); g.add(clump);
   });
 
-  // ── Big bulging cartoon eyes ──
   [-0.21, 0.21].forEach(ex => {
     const ball = new THREE.Mesh(new THREE.SphereGeometry(.155, 8, 7), eyeW);
     ball.scale.set(1, 1, 1.15);
@@ -252,7 +276,6 @@ function makeZombie() {
     pupil.position.set(ex, 1.81, .5); g.add(pupil);
   });
 
-  // ── Open mouth with jagged teeth ──
   const mouthBox = new THREE.Mesh(new THREE.BoxGeometry(.38,.2,.05), mouth);
   mouthBox.position.set(0, 1.59, .38); g.add(mouthBox);
   [-.13, -.05, .04, .12].forEach((tx, i) => {
@@ -260,26 +283,21 @@ function makeZombie() {
     t.position.set(tx, 1.64, .4); g.add(t);
   });
 
-  // ── Thin torso + torn tank top ──
   const torso = new THREE.Mesh(new THREE.BoxGeometry(.62,.92,.36), skin);
   torso.position.set(0, 1.05, 0); torso.castShadow = true; g.add(torso);
   const tankMesh = new THREE.Mesh(new THREE.BoxGeometry(.66,.9,.1), tank);
   tankMesh.position.set(0, 1.06, .2); g.add(tankMesh);
-  // Hole in tank top
   const hole = new THREE.Mesh(new THREE.BoxGeometry(.18,.16,.06), skin);
   hole.position.set(.1, .98, .22); g.add(hole);
 
-  // ── Arms hanging loosely at sides ──
   const aL = new THREE.Mesh(new THREE.BoxGeometry(.22,.78,.22), skin);
   aL.position.set(-.5, 1.08, 0); aL.rotation.z = .18; aL.castShadow = true; g.add(aL);
   const aR = new THREE.Mesh(new THREE.BoxGeometry(.22,.78,.22), skin);
   aR.position.set(.5, 1.08, .04); aR.rotation.z = -.18; aR.rotation.x = .12; aR.castShadow = true; g.add(aR);
 
-  // ── Blue shorts ──
   const shortsMesh = new THREE.Mesh(new THREE.BoxGeometry(.66,.44,.38), shorts);
   shortsMesh.position.set(0, .63, 0); shortsMesh.castShadow = true; g.add(shortsMesh);
 
-  // ── Bare green legs ──
   [-0.2, 0.2].forEach(lx => {
     const leg = new THREE.Mesh(new THREE.BoxGeometry(.24,.58,.24), skin);
     leg.position.set(lx, .3, 0); leg.castShadow = true; g.add(leg);
@@ -292,7 +310,7 @@ function makeBlueZombie() {
   const skinVars = [0x2277cc, 0x3388dd, 0x1a6bbf, 0x2d7fd4];
   const skin   = new THREE.MeshLambertMaterial({ color: skinVars[Math.floor(Math.random()*4)] });
   const tank   = new THREE.MeshLambertMaterial({ color: 0xbbbbaa });
-  const shorts = new THREE.MeshLambertMaterial({ color: 0x774499 }); // purple shorts to stand out
+  const shorts = new THREE.MeshLambertMaterial({ color: 0x774499 });
   const hair   = new THREE.MeshLambertMaterial({ color: 0xcc1111 });
   const eyeW   = new THREE.MeshLambertMaterial({ color: 0xeeeebb });
   const black  = new THREE.MeshLambertMaterial({ color: 0x222222 });
@@ -350,64 +368,53 @@ function makeBlueZombie() {
 }
 
 function makeChickenZombie() {
-  // Yellow chicken onesie with blue/purple zombie face visible in the hood — like the reference
   const yellow  = new THREE.MeshLambertMaterial({ color: 0xf5c000 });
   const ylowDrk = new THREE.MeshLambertMaterial({ color: 0xd4a000 });
   const orange  = new THREE.MeshLambertMaterial({ color: 0xff6600 });
-  const zombieF = new THREE.MeshLambertMaterial({ color: 0x4433aa }); // blue/purple zombie face
+  const zombieF = new THREE.MeshLambertMaterial({ color: 0x4433aa });
   const white   = new THREE.MeshLambertMaterial({ color: 0xeeeeee });
   const black   = new THREE.MeshLambertMaterial({ color: 0x111111 });
   const cream   = new THREE.MeshLambertMaterial({ color: 0xffffcc });
   const g = new THREE.Group();
 
-  // ── Big puffy yellow body (round onesie) ──
   const bodyS = new THREE.Mesh(new THREE.SphereGeometry(.72, 10, 8), yellow);
   bodyS.scale.set(1, 1.15, .9);
   bodyS.position.set(0, 1.05, 0); bodyS.castShadow = true; g.add(bodyS);
-  // Lighter chest highlight
   const chest = new THREE.Mesh(new THREE.SphereGeometry(.42, 8, 6), white);
   chest.scale.set(1, 1.3, .6);
   chest.position.set(0, 1.1, .38); g.add(chest);
 
-  // ── Orange chicken hood (sits on top of body) ──
   const hood = new THREE.Mesh(new THREE.SphereGeometry(.55, 9, 8), orange);
   hood.scale.set(1, .9, 1);
   hood.position.set(0, 1.82, 0); hood.castShadow = true; g.add(hood);
-  // Hood opening — dark oval recess showing zombie face
   const hoodOpen = new THREE.Mesh(new THREE.SphereGeometry(.38, 8, 7), new THREE.MeshLambertMaterial({ color: 0x221100 }));
   hoodOpen.scale.set(1, 1.1, .4);
   hoodOpen.position.set(0, 1.8, .34); g.add(hoodOpen);
-  // Orange top-knot / comb bumps
-  [0, .15, -.15].forEach((ox, i) => {
-    const bump = new THREE.Mesh(new THREE.SphereGeometry(.12 - i*.02, 6, 5), orange);
+  [0, .15, -.15].forEach((ox) => {
+    const bump = new THREE.Mesh(new THREE.SphereGeometry(.12, 6, 5), orange);
     bump.position.set(ox, 2.33, -.05); g.add(bump);
   });
-  // Chicken beak (orange, pointing forward from hood)
   const beak = new THREE.Mesh(new THREE.BoxGeometry(.22,.12,.22), orange);
   beak.position.set(0, 1.75, .58); g.add(beak);
   const beakTip = new THREE.Mesh(new THREE.BoxGeometry(.14,.08,.12), ylowDrk);
   beakTip.position.set(0, 1.73, .7); g.add(beakTip);
 
-  // ── Zombie face inside hood opening ──
   const face = new THREE.Mesh(new THREE.SphereGeometry(.3, 8, 7), zombieF);
   face.scale.set(1, 1.1, .55);
   face.position.set(0, 1.8, .3); g.add(face);
-  // Creepy eyes (wide, white with dark pupils)
   [-0.14, 0.14].forEach(ex => {
-    const eyeW = new THREE.Mesh(new THREE.SphereGeometry(.1, 6, 5), white);
-    eyeW.scale.set(1, .85, .5);
-    eyeW.position.set(ex, 1.86, .46); g.add(eyeW);
+    const eyeWM = new THREE.Mesh(new THREE.SphereGeometry(.1, 6, 5), white);
+    eyeWM.scale.set(1, .85, .5);
+    eyeWM.position.set(ex, 1.86, .46); g.add(eyeWM);
     const pupil = new THREE.Mesh(new THREE.SphereGeometry(.06, 5, 4), black);
     pupil.scale.set(1, 1, .5);
     pupil.position.set(ex, 1.85, .5); g.add(pupil);
   });
-  // Jagged teeth
   [-.1, 0, .1].forEach(tx => {
     const tooth = new THREE.Mesh(new THREE.BoxGeometry(.07,.08,.04), cream);
     tooth.position.set(tx, 1.68, .49); g.add(tooth);
   });
 
-  // ── Yellow wing-arms (flat, sticking out at sides) ──
   const wL = new THREE.Mesh(new THREE.SphereGeometry(.32, 7, 5), yellow);
   wL.scale.set(.55, 1.4, .6);
   wL.position.set(-.82, 1.1, .05); wL.rotation.z = .25; g.add(wL);
@@ -415,7 +422,6 @@ function makeChickenZombie() {
   wR.scale.set(.55, 1.4, .6);
   wR.position.set(.82, 1.1, .05); wR.rotation.z = -.25; g.add(wR);
 
-  // ── Short yellow legs ──
   [-0.22, 0.22].forEach(lx => {
     const leg = new THREE.Mesh(new THREE.BoxGeometry(.28,.55,.28), ylowDrk);
     leg.position.set(lx, .28, 0); leg.castShadow = true; g.add(leg);
@@ -431,38 +437,20 @@ function makePickupClock() {
   const black  = new THREE.MeshLambertMaterial({ color: 0x222222 });
   const g = new THREE.Group();
 
-  // Clock face (flat cylinder)
   const face = new THREE.Mesh(new THREE.CylinderGeometry(.42, .42, .1, 16), gold);
-  face.rotation.x = Math.PI / 2;
-  g.add(face);
-  // Rim (slightly larger, darker)
+  face.rotation.x = Math.PI / 2; g.add(face);
   const rim = new THREE.Mesh(new THREE.CylinderGeometry(.48, .48, .08, 16), goldDk);
-  rim.rotation.x = Math.PI / 2;
-  rim.position.z = .01;
-  g.add(rim);
-  // Clock face white disc
+  rim.rotation.x = Math.PI / 2; rim.position.z = .01; g.add(rim);
   const dial = new THREE.Mesh(new THREE.CylinderGeometry(.38, .38, .06, 16), white);
-  dial.rotation.x = Math.PI / 2;
-  dial.position.z = .06;
-  g.add(dial);
-  // Hour hand
+  dial.rotation.x = Math.PI / 2; dial.position.z = .06; g.add(dial);
   const hHand = new THREE.Mesh(new THREE.BoxGeometry(.05, .22, .04), black);
-  hHand.position.set(-.06, .08, .1);
-  hHand.rotation.z = -.4;
-  g.add(hHand);
-  // Minute hand (longer)
+  hHand.position.set(-.06, .08, .1); hHand.rotation.z = -.4; g.add(hHand);
   const mHand = new THREE.Mesh(new THREE.BoxGeometry(.04, .32, .04), black);
-  mHand.position.set(.04, .12, .1);
-  mHand.rotation.z = .3;
-  g.add(mHand);
-  // Centre dot
+  mHand.position.set(.04, .12, .1); mHand.rotation.z = .3; g.add(mHand);
   const dot = new THREE.Mesh(new THREE.SphereGeometry(.04, 6, 6), gold);
-  dot.position.z = .12;
-  g.add(dot);
-  // +30 text stand-in: small gold star on top
+  dot.position.z = .12; g.add(dot);
   const star = new THREE.Mesh(new THREE.SphereGeometry(.1, 5, 4), gold);
-  star.position.set(0, .55, 0);
-  g.add(star);
+  star.position.set(0, .55, 0); g.add(star);
 
   return g;
 }
@@ -473,19 +461,15 @@ function makeBucket(isBlue) {
   const metalMat = new THREE.MeshLambertMaterial({ color: 0xaaaaaa });
   const g = new THREE.Group();
 
-  // Bucket body (tapered)
   const body = new THREE.Mesh(new THREE.CylinderGeometry(.26,.18,.42,10), mainMat);
   body.position.y = .21; body.castShadow = true; g.add(body);
-  // Slime surface inside
   const slime = new THREE.Mesh(new THREE.CylinderGeometry(.24,.24,.04,10), slimeMat);
   slime.position.y = .4; g.add(slime);
-  // Drip blobs on outside
   [0, 1.2, 2.5, 4.0].forEach(a => {
     const drip = new THREE.Mesh(new THREE.SphereGeometry(.05,5,4), slimeMat);
     drip.position.set(Math.cos(a)*.22, .12 + Math.sin(a*.7)*.06, Math.sin(a)*.22);
     g.add(drip);
   });
-  // Metal handle
   const bar = new THREE.Mesh(new THREE.BoxGeometry(.52,.04,.04), metalMat);
   bar.position.y = .52; g.add(bar);
   [-0.24, 0.24].forEach(hx => {
@@ -520,19 +504,190 @@ function flashHit(meshGroup) {
 }
 
 // ── MATERIALS ─────────────────────────────────────────────────────────────────
-const waterMat   = new THREE.MeshLambertMaterial({ color: 0x00aaff, transparent: true, opacity: .88 });
-const splashClrs = [0x00aaff, 0x33ccff, 0x88ddff, 0x00ccff];
+const waterMat    = new THREE.MeshLambertMaterial({ color: 0x00aaff, transparent: true, opacity: .88 });
+const splashClrs  = [0x00aaff, 0x33ccff, 0x88ddff, 0x00ccff];
+const bbMat       = new THREE.MeshLambertMaterial({ color: 0xff6600 });
+const bbSplashClrs= [0xff6600, 0xff8822, 0xffaa44, 0xdd4400];
+
+// ── WEAPON SCENE ──────────────────────────────────────────────────────────────
+const weaponScene  = new THREE.Scene();
+const weaponCamera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.01, 10);
+weaponScene.add(new THREE.AmbientLight(0xffffff, 1.0));
+const wLight = new THREE.DirectionalLight(0xffffff, 0.6);
+wLight.position.set(1, 2, 1);
+weaponScene.add(wLight);
+
+// Water gun model
+function makeWaterGun() {
+  const g = new THREE.Group();
+  const bodyMat   = new THREE.MeshLambertMaterial({ color: 0x0088cc });
+  const accentMat = new THREE.MeshLambertMaterial({ color: 0x004d88 });
+  const tankMat   = new THREE.MeshLambertMaterial({ color: 0x33bbee });
+  const gripMat   = new THREE.MeshLambertMaterial({ color: 0x773311 });
+  const yellowMat = new THREE.MeshLambertMaterial({ color: 0xffcc00 });
+
+  // Barrel (pointing along -Z = forward in weapon camera space)
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(.038, .044, .48, 8), bodyMat);
+  barrel.rotation.x = Math.PI / 2;
+  barrel.position.set(0, .018, -.19);
+  g.add(barrel);
+
+  // Nozzle
+  const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(.052, .038, .07, 8), accentMat);
+  nozzle.rotation.x = Math.PI / 2;
+  nozzle.position.set(0, .018, -.44);
+  g.add(nozzle);
+
+  // Water tank on top
+  const tank = new THREE.Mesh(new THREE.CylinderGeometry(.052, .052, .28, 8), tankMat);
+  tank.rotation.x = Math.PI / 2;
+  tank.position.set(0, .1, -.12);
+  g.add(tank);
+
+  // Tank front cap
+  const capF = new THREE.Mesh(new THREE.SphereGeometry(.053, 6, 5), accentMat);
+  capF.position.set(0, .1, -.27);
+  g.add(capF);
+  // Tank back cap
+  const capB = new THREE.Mesh(new THREE.SphereGeometry(.053, 6, 5), accentMat);
+  capB.position.set(0, .1, .02);
+  g.add(capB);
+
+  // Yellow accent stripe on tank
+  const stripe = new THREE.Mesh(new THREE.CylinderGeometry(.054, .054, .06, 8), yellowMat);
+  stripe.rotation.x = Math.PI / 2;
+  stripe.position.set(0, .1, -.08);
+  g.add(stripe);
+
+  // Grip/handle
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(.065, .2, .1), gripMat);
+  grip.position.set(0, -.09, .02);
+  grip.rotation.x = .12;
+  g.add(grip);
+
+  // Trigger guard
+  const guard = new THREE.Mesh(new THREE.BoxGeometry(.025, .04, .11), bodyMat);
+  guard.position.set(0, -.01, -.07);
+  g.add(guard);
+
+  // Pump handle on bottom of barrel
+  const pump = new THREE.Mesh(new THREE.CylinderGeometry(.028, .028, .26, 6), accentMat);
+  pump.rotation.x = Math.PI / 2;
+  pump.position.set(0, -.04, -.18);
+  g.add(pump);
+
+  return g;
+}
+
+// Basketball launcher model
+function makeBasketballLauncher() {
+  const g = new THREE.Group();
+  const tubeMat  = new THREE.MeshLambertMaterial({ color: 0x4a2800 });
+  const ringMat  = new THREE.MeshLambertMaterial({ color: 0x777777 });
+  const ballMat  = new THREE.MeshLambertMaterial({ color: 0xff6600 });
+  const seamMat  = new THREE.MeshLambertMaterial({ color: 0x1a0800 });
+  const gripMat  = new THREE.MeshLambertMaterial({ color: 0x2a1400 });
+  const metalMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
+
+  // Main barrel tube
+  const tube = new THREE.Mesh(new THREE.CylinderGeometry(.072, .070, .52, 10), tubeMat);
+  tube.rotation.x = Math.PI / 2;
+  tube.position.set(0, .008, -.18);
+  g.add(tube);
+
+  // Front metal ring
+  const ringF = new THREE.Mesh(new THREE.CylinderGeometry(.08, .08, .04, 10), ringMat);
+  ringF.rotation.x = Math.PI / 2;
+  ringF.position.set(0, .008, -.42);
+  g.add(ringF);
+
+  // Back ring
+  const ringB = new THREE.Mesh(new THREE.CylinderGeometry(.076, .076, .03, 10), metalMat);
+  ringB.rotation.x = Math.PI / 2;
+  ringB.position.set(0, .008, .06);
+  g.add(ringB);
+
+  // Basketball peeking out of barrel front
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(.068, 10, 8), ballMat);
+  ball.position.set(0, .008, -.4);
+  g.add(ball);
+
+  // Seam lines on basketball (thin torus rings)
+  const s1 = new THREE.Mesh(new THREE.TorusGeometry(.068, .006, 4, 14), seamMat);
+  s1.position.set(0, .008, -.4);
+  s1.rotation.x = Math.PI / 2;
+  g.add(s1);
+  const s2 = new THREE.Mesh(new THREE.TorusGeometry(.068, .006, 4, 14), seamMat);
+  s2.position.set(0, .008, -.4);
+  s2.rotation.z = Math.PI / 2;
+  g.add(s2);
+
+  // Handle/grip
+  const handle = new THREE.Mesh(new THREE.BoxGeometry(.078, .22, .11), gripMat);
+  handle.position.set(0, -.1, .0);
+  handle.rotation.x = .1;
+  g.add(handle);
+
+  // Stock at back
+  const stock = new THREE.Mesh(new THREE.BoxGeometry(.1, .08, .18), tubeMat);
+  stock.position.set(0, .01, .14);
+  g.add(stock);
+
+  // Orange ammo indicator stripe on tube
+  const stripe = new THREE.Mesh(new THREE.CylinderGeometry(.074, .074, .04, 10), ballMat);
+  stripe.rotation.x = Math.PI / 2;
+  stripe.position.set(0, .008, -.1);
+  g.add(stripe);
+
+  return g;
+}
+
+const WEAPON_X = 0.42, WEAPON_Y = -0.30, WEAPON_Z = -0.56;
+const waterGunMesh       = makeWaterGun();
+const basketLauncherMesh = makeBasketballLauncher();
+waterGunMesh.position.set(WEAPON_X, WEAPON_Y, WEAPON_Z);
+basketLauncherMesh.position.set(WEAPON_X - 0.01, WEAPON_Y, WEAPON_Z);
+weaponScene.add(waterGunMesh);
+weaponScene.add(basketLauncherMesh);
+
+// Weapon system state
+let currentWeapon     = 'water';
+let basketballCooldown = 0;
+let weaponBobT        = 0;
+let playerMoving      = false;
+let weaponKick        = 0;
+// Switch animation: phase 'idle'|'out'|'in', t 0→1
+let weaponSwitchPhase = 'idle';
+let weaponSwitchT     = 0;
+let weaponSwitchTo    = null;
+
+function updateWeaponVisibility() {
+  waterGunMesh.visible       = currentWeapon === 'water';
+  basketLauncherMesh.visible = currentWeapon === 'basketball';
+}
+updateWeaponVisibility();
+
+function updateWeaponHUD() {
+  document.getElementById('wp1').classList.toggle('active', currentWeapon === 'water');
+  document.getElementById('wp2').classList.toggle('active', currentWeapon === 'basketball');
+}
+
+function triggerWeaponSwitch(to) {
+  if (currentWeapon === to || weaponSwitchPhase !== 'idle') return;
+  weaponSwitchTo = to;
+  weaponSwitchPhase = 'out';
+  weaponSwitchT = 0;
+}
 
 // ── CONTROLS ─────────────────────────────────────────────────────────────────
 let yaw = 0, pitch = 0;
 let isLocked = false;
 const keys = {};
 
-// ── Pointer lock ──
 document.addEventListener('pointerlockchange', () => {
   isLocked = document.pointerLockElement === renderer.domElement;
   document.getElementById('tip').textContent = isLocked
-    ? 'ESC för att låsa upp musen'
+    ? 'ESC för att låsa upp musen · Mellanslag = byta vapen'
     : 'Klicka på spelet för att sikta och snurra runt';
 });
 
@@ -543,6 +698,14 @@ renderer.domElement.addEventListener('click', () => {
 document.addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.code === 'KeyP') pauseToggle();
+  if (gameActive && !paused) {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      triggerWeaponSwitch(currentWeapon === 'water' ? 'basketball' : 'water');
+    }
+    if (e.code === 'KeyQ' || e.code === 'Digit2') triggerWeaponSwitch('basketball');
+    if (e.code === 'Digit1') triggerWeaponSwitch('water');
+  }
 });
 document.addEventListener('keyup', e => { keys[e.code] = false; });
 
@@ -639,11 +802,30 @@ function spawnZombie() {
 
 // ── SHOOT ─────────────────────────────────────────────────────────────────────
 function shoot() {
+  if (currentWeapon === 'basketball') {
+    if (basketballCooldown > 0) return;
+    shootBasketball();
+    basketballCooldown = 0.5;
+  } else {
+    shootWater();
+  }
+  weaponKick = 0.055;
+}
+
+function shootWater() {
   const dir = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
   const ball = new THREE.Mesh(new THREE.SphereGeometry(.17, 8, 8), waterMat.clone());
   ball.position.copy(camera.position).addScaledVector(dir, .9);
   scene.add(ball);
-  projectiles.push({ mesh: ball, vel: dir.clone().multiplyScalar(28), alive: true, life: 2.5 });
+  projectiles.push({ mesh: ball, vel: dir.clone().multiplyScalar(28), alive: true, life: 2.5, type: 'water' });
+}
+
+function shootBasketball() {
+  const dir = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(.22, 10, 8), bbMat.clone());
+  ball.position.copy(camera.position).addScaledVector(dir, .9);
+  scene.add(ball);
+  projectiles.push({ mesh: ball, vel: dir.clone().multiplyScalar(22), alive: true, life: 3.0, type: 'basketball' });
 }
 
 // ── SPLASH ────────────────────────────────────────────────────────────────────
@@ -660,6 +842,19 @@ function createSplash(pos) {
   }
 }
 
+function createBasketballSplash(pos) {
+  for (let i = 0; i < 12; i++) {
+    const mat = new THREE.MeshLambertMaterial({
+      color: bbSplashClrs[Math.floor(Math.random()*4)], transparent: true, opacity: .9
+    });
+    const d = new THREE.Mesh(new THREE.SphereGeometry(.1+Math.random()*.13, 5, 5), mat);
+    d.position.copy(pos);
+    const vel = new THREE.Vector3((Math.random()-.5)*10, 5+Math.random()*7, (Math.random()-.5)*10);
+    scene.add(d);
+    splashes.push({ mesh: d, vel, life: .85, maxLife: .85 });
+  }
+}
+
 // ── COLLISIONS ────────────────────────────────────────────────────────────────
 function checkCollisions() {
   for (const p of projectiles) {
@@ -667,10 +862,12 @@ function checkCollisions() {
     for (const z of zombies) {
       if (!z.alive) continue;
       const zc = z.mesh.position.clone(); zc.y = 1.1;
-      if (p.mesh.position.distanceTo(zc) < 1.2) {
-        createSplash(p.mesh.position.clone());
+      const hitRadius = p.type === 'basketball' ? 1.4 : 1.2;
+      if (p.mesh.position.distanceTo(zc) < hitRadius) {
+        if (p.type === 'basketball') createBasketballSplash(p.mesh.position.clone());
+        else createSplash(p.mesh.position.clone());
         scene.remove(p.mesh); p.alive = false;
-        z.health--;
+        z.health -= p.type === 'basketball' ? 2 : 1;
         if (z.health <= 0) {
           const deadPos = z.mesh.position.clone();
           scene.remove(z.mesh); z.alive = false;
@@ -758,6 +955,18 @@ function startGame() {
   yaw = 0; pitch = 0;
   camera.position.set(0, 1.7, 0);
 
+  // Reset weapon
+  currentWeapon = 'water';
+  basketballCooldown = 0;
+  weaponKick = 0;
+  weaponBobT = 0;
+  weaponSwitchPhase = 'idle';
+  weaponSwitchT = 0;
+  updateWeaponVisibility();
+  updateWeaponHUD();
+  waterGunMesh.position.set(WEAPON_X, WEAPON_Y, WEAPON_Z);
+  basketLauncherMesh.position.set(WEAPON_X - 0.01, WEAPON_Y, WEAPON_Z);
+
   setLives(5);
   scEl.textContent = '⭐ 0';
   wvEl.textContent = 'Våg 1';
@@ -788,6 +997,10 @@ function updatePlayer(dt) {
   _right.crossVectors(_fwd, _up).normalize();
 
   const spd = 6 * dt;
+  const wasMoving = playerMoving;
+  playerMoving = keys['KeyW'] || keys['ArrowUp'] || keys['KeyS'] || keys['ArrowDown'] ||
+                 keys['KeyD'] || keys['ArrowRight'] || keys['KeyA'] || keys['ArrowLeft'];
+
   if (keys['KeyW'] || keys['ArrowUp'])    camera.position.addScaledVector(_fwd,   spd);
   if (keys['KeyS'] || keys['ArrowDown'])  camera.position.addScaledVector(_fwd,  -spd);
   if (keys['KeyD'] || keys['ArrowRight']) camera.position.addScaledVector(_right,  spd);
@@ -816,6 +1029,50 @@ function animate() {
 
   updatePlayer(dt);
 
+  // Cooldowns
+  if (basketballCooldown > 0) basketballCooldown = Math.max(0, basketballCooldown - dt);
+
+  // Weapon bob (walk cycle)
+  if (playerMoving) weaponBobT += dt * 7.5;
+  const bobY = Math.sin(weaponBobT) * (playerMoving ? 0.013 : 0);
+  const bobX = Math.sin(weaponBobT * 0.5) * (playerMoving ? 0.006 : 0);
+
+  // Weapon kick (recoil)
+  if (weaponKick > 0) weaponKick = Math.max(0, weaponKick - dt * 0.7);
+
+  // Weapon switch animation
+  let switchOffsetY = 0;
+  if (weaponSwitchPhase !== 'idle') {
+    weaponSwitchT += dt * 6; // full switch takes ~0.33s
+    if (weaponSwitchPhase === 'out') {
+      switchOffsetY = -weaponSwitchT * 0.35;
+      if (weaponSwitchT >= 1) {
+        currentWeapon = weaponSwitchTo;
+        updateWeaponVisibility();
+        updateWeaponHUD();
+        weaponSwitchPhase = 'in';
+        weaponSwitchT = 0;
+      }
+    } else { // 'in'
+      switchOffsetY = -(1 - weaponSwitchT) * 0.35;
+      if (weaponSwitchT >= 1) {
+        weaponSwitchPhase = 'idle';
+        switchOffsetY = 0;
+      }
+    }
+  }
+
+  // Apply weapon position
+  const activeW = currentWeapon === 'water' ? waterGunMesh : basketLauncherMesh;
+  const baseX   = currentWeapon === 'water' ? WEAPON_X : WEAPON_X - 0.01;
+  activeW.position.set(
+    baseX + bobX,
+    WEAPON_Y + bobY + switchOffsetY,
+    WEAPON_Z + weaponKick
+  );
+  // Gentle spin for basketball ball in launcher
+  if (currentWeapon === 'basketball') basketLauncherMesh.rotation.z = Math.sin(t * 0.8) * 0.015;
+
   // Timer
   timeLeft -= dt;
   if (timeLeft <= 0) { winGame(); return; }
@@ -843,6 +1100,11 @@ function animate() {
   projectiles = projectiles.filter(p => {
     if (!p.alive) return false;
     p.mesh.position.addScaledVector(p.vel, dt);
+    // Basketball spins in flight
+    if (p.type === 'basketball') {
+      p.mesh.rotation.x += dt * 8;
+      p.mesh.rotation.y += dt * 5;
+    }
     p.life -= dt;
     if (p.life <= 0) { scene.remove(p.mesh); return false; }
     return true;
@@ -906,12 +1168,22 @@ function animate() {
 
   checkCollisions();
   checkWave(dt);
+
+  // Render main scene
   renderer.render(scene, camera);
+
+  // Render weapon on top (clears depth so weapon shows in front of everything)
+  renderer.autoClear = false;
+  renderer.clearDepth();
+  renderer.render(weaponScene, weaponCamera);
+  renderer.autoClear = true;
 }
 
 window.addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
+  weaponCamera.aspect = innerWidth / innerHeight;
+  weaponCamera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
 
