@@ -2,6 +2,7 @@
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'none'">
 <title>Zombie Splash Attack! 🌊</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1068,27 +1069,45 @@ function checkWave(dt) {
 }
 
 // ── GAME OVER / WIN ───────────────────────────────────────────────────────────
+function setOverlay(titleText, titleClass, scoreText, detailText, detailStyle, btnText) {
+  ovEl.textContent = '';
+  const title = document.createElement('div');
+  title.className = titleClass;
+  title.textContent = titleText;
+  const fin = document.createElement('div');
+  fin.className = 'fin';
+  fin.textContent = scoreText;
+  const detail = document.createElement('p');
+  Object.assign(detail.style, { fontSize: '1.3em', margin: '.4em 0', ...detailStyle });
+  detail.textContent = detailText;
+  const btn = document.createElement('button');
+  btn.className = 'btn';
+  btn.textContent = btnText;
+  btn.addEventListener('click', startGame);
+  ovEl.append(title, fin, detail, btn);
+}
+
 function gameOver() {
   gameActive = false;
   document.exitPointerLock();
-  ovEl.innerHTML = `
-    <div class="got">🧟 Zombiesarna vann! 🧟</div>
-    <div class="fin">⭐ ${score} poäng</div>
-    <p style="font-size:1.3em;color:#aaa;margin:.4em 0">Du nådde Våg ${wave}</p>
-    <button class="btn" onclick="startGame()">Försök igen! 💦</button>
-  `;
+  setOverlay(
+    '🧟 Zombiesarna vann! 🧟', 'got',
+    `⭐ ${score} poäng`,
+    `Du nådde Våg ${wave}`, { color: '#aaa' },
+    'Försök igen! 💦'
+  );
   ovEl.style.display = 'flex';
 }
 
 function winGame() {
   gameActive = false;
   document.exitPointerLock();
-  ovEl.innerHTML = `
-    <div class="win">🎉 DU ÖVERLEVDE! 🎉</div>
-    <div class="fin">⭐ ${score} poäng</div>
-    <p style="font-size:1.3em;color:#adf;margin:.4em 0">5 minuter klarade! Våg ${wave} nådd!</p>
-    <button class="btn" onclick="startGame()">Spela igen! 🌊</button>
-  `;
+  setOverlay(
+    '🎉 DU ÖVERLEVDE! 🎉', 'win',
+    `⭐ ${score} poäng`,
+    `5 minuter klarade! Våg ${wave} nådd!`, { color: '#adf' },
+    'Spela igen! 🌊'
+  );
   ovEl.style.display = 'flex';
 }
 
